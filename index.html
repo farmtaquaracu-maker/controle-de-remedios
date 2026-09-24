@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Controle de Remédios</title>
+<meta name="theme-color" content="#3F5941">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<style>
+:root{--bg:#F6F4EF;--card:#FFF;--ink:#23291F;--muted:#8A9483;--sage-btn:#9CAF9D;--amber:#C97A2B;--amber-bg:#FDF0DC;--red:#B84C3E;--line:#E8E5DC;--line2:#EDE9DF;}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+.wrap{max-width:640px;margin:0 auto;padding:20px 16px 80px}
+.header{display:flex;gap:12px;align-items:flex-start;margin-bottom:28px}
+.icon-box{width:52px;height:52px;background:#5C7A5E;border-radius:14px;display:flex;align-items:center;justify-content:center}
+.header h1{margin:0;font-family:Georgia,serif;font-size:1.75rem;font-weight:700;line-height:1.1}
+.header .sub{margin:6px 0 0;color:var(--muted);font-size:0.88rem}
+.section-title{font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin:28px 0 12px;font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+input{width:100%;padding:12px 14px;border:1px solid var(--line2);border-radius:12px;background:#F9F7F2;font-size:0.95rem}
+.row{display:flex;gap:10px;margin-top:14px}.third{flex:1}
+.btn-add{width:100%;margin-top:14px;background:var(--sage-btn);color:#fff;border:none;border-radius:12px;padding:14px;font-weight:600;cursor:pointer}
+.med-top{display:flex;justify-content:space-between;gap:10px}
+.med-name{font-family:Georgia,serif;font-size:1.15rem;font-weight:700}
+.badge{background:#F5F3EE;border:1px solid var(--line);border-radius:20px;padding:6px 14px;font-size:0.82rem}
+.med-meta{color:var(--muted);font-size:0.85rem;margin-top:2px}
+.progress-wrap{height:6px;background:#F0EEE6;border-radius:10px;margin-top:14px;overflow:hidden}
+.progress{height:100%;background:#2E4A31;border-radius:10px}
+.med-actions{display:flex;gap:10px;margin-top:14px}
+.btn-edit,.btn-del{flex:1;padding:12px;border-radius:12px}
+.btn-edit{background:#fff;border:1px solid var(--line)}
+.btn-del{background:#fff;border:1px solid #E9CFC8;color:var(--red)}
+.shop{background:var(--amber-bg);border:1px solid #F3DEB8;border-radius:16px;padding:16px;margin-top:12px}
+.shop-item{display:flex;justify-content:space-between;font-size:0.92rem;padding:4px 0}
+.shop-item b{color:var(--amber)}
+.btn-share{width:100%;margin-top:14px;background:#2E4A31;color:#fff;border:none;border-radius:12px;padding:14px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="header">
+<div class="icon-box">💊</div>
+<div><h1>Controle de<br>Remédios</h1><p class="sub">Acompanhe o estoque e saiba<br>quando comprar antes de faltar.</p></div>
+</div>
+<div class="section-title">Adicionar remédio</div>
+<div class="card">
+<label>Nome do remédio</label><input id="name" placeholder="Ex: Losartana 50mg">
+<div class="row">
+<div class="third"><label>Qtd. total</label><input id="total" type="number" placeholder="30"></div>
+<div class="third"><label>Por dia</label><input id="daily" type="number" placeholder="1"></div>
+<div class="third"><label>Avisar com</label><input id="thr" type="number" value="15"></div>
+</div>
+<button class="btn-add" id="btnAdd">Adicionar remédio</button>
+</div>
+<div id="banner"></div>
+<div style="display:flex;justify-content:space-between;margin-top:28px"><span class="section-title" style="margin:0">Seus remédios</span><span id="count" style="font-size:0.78rem;color:#8A9483"></span></div>
+<div id="list"></div>
+<div id="shopWrap" style="display:none"><div class="section-title">Lista de compras (próximos 30 dias)</div><div class="shop"><div id="shopList"></div><button class="btn-share" onclick="shareList()">📤 Compartilhar lista</button></div></div>
+
+<div style="text-align:center;margin-top:40px;padding-top:20px;border-top:1px solid var(--line)">
+<div style="font-size:0.75rem;color:var(--muted)">App 100% offline e privado • Seus dados ficam só no seu celular</div>
+<div style="font-size:0.85rem;margin-top:8px;display:flex;justify-content:center;gap:6px;flex-wrap:wrap;align-items:center">
+<span>Criado por</span><a href="https://instagram.com/le4ndro.m" target="_blank" style="font-weight:700;color:#3F5941;text-decoration:none">@Leandro_tm</a><span style="color:var(--muted)">•</span><span>com IA <b>Claude</b> & <b>Meta AI</b></span>
+</div>
+<div style="font-size:0.68rem;color:var(--muted);margin-top:6px">Tecnologia para cuidar da sua saúde • v1.0</div>
+</div>
+
+</div>
+<script>
+const KEY='meds_v3';let meds=[];let notified=new Set();
+function load(){try{meds=JSON.parse(localStorage.getItem(KEY)||'[]')}catch{} try{notified=new Set(JSON.parse(localStorage.getItem(KEY+'_notif')||'[]'))}catch{}}
+function save(){localStorage.setItem(KEY,JSON.stringify(meds));localStorage.setItem(KEY+'_notif',JSON.stringify([...notified]))}
+function daysLeft(m){return Math.floor(m.total/m.daily)}
+function endDate(m){let d=new Date();d.setDate(d.getDate()+daysLeft(m));return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}
+function esc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function reqPerm(){if('Notification' in window && Notification.permission==='default')Notification.requestPermission()}
+function notifyLow(list){if(!('Notification' in window)||Notification.permission!=='granted')return;list.forEach(m=>{const k=m.id+'_'+m.total;if(notified.has(k))return;new Notification('⚠️ Estoque baixo', {body:`${m.name} - restam ${m.total} un. (${daysLeft(m)} dias)`,icon:'./icon-192.png'});notified.add(k)});save()}
+function render(){const list=document.getElementById('list'),count=document.getElementById('count'),shopWrap=document.getElementById('shopWrap'),shopList=document.getElementById('shopList'),banner=document.getElementById('banner');count.textContent=meds.length?meds.length+' cadastrado':'';const low=meds.filter(m=>m.total<=(m.threshold||15));if(low.length){banner.innerHTML=`<div style="background:#F8E7E3;border:1px solid #E5A090;border-radius:12px;padding:14px;margin-top:20px;color:#7A2A1E"><b>⚠️ Estoque baixo - ${low.length} remédio(s)</b><br>${low.map(m=>`• ${esc(m.name)} - restam <b>${m.total} un.</b> (${daysLeft(m)} dias)`).join('<br>')}</div>`;notifyLow(low)}else banner.innerHTML='';if(!meds.length){list.innerHTML='<div style="text-align:center;color:#8A9483;padding:30px">Nenhum remédio ainda</div>';shopWrap.style.display='none';return}list.innerHTML=meds.map(m=>{const d=daysLeft(m);const isLow=m.total<=(m.threshold||15);return `<div class="card" style="margin-bottom:10px;${isLow?'border-color:#E5A090;background:#FFFBF9':''}"><div class="med-top"><div><div class="med-name">${esc(m.name)} ${isLow?'<span style="font-size:0.7rem;background:#F8E7E3;color:#B84C3E;padding:2px 8px;border-radius:20px">COMPRAR</span>':''}</div><div class="med-meta">${m.total} comprimidos · ${m.daily}/dia · até ${endDate(m)}</div></div><div class="badge" style="${isLow?'background:#F8E7E3;color:#B84C3E;border-color:#E5A090':''}">${d} dias</div></div><div class="progress-wrap"><div class="progress" style="width:${Math.min(100,Math.max(5,Math.round((m.total/(m.daily*30))*100)))}%;${isLow?'background:#B84C3E':''}"></div></div><div class="med-actions"><button class="btn-edit" onclick="editMed('${m.id}')">Editar</button><button class="btn-del" onclick="delMed('${m.id}')">Remover</button></div></div>`}).join('');const soon=meds.filter(m=>daysLeft(m)<=30);if(soon.length){shopWrap.style.display='block';shopList.innerHTML=soon.map(m=>`<div class="shop-item"><span>${esc(m.name)} - até ${endDate(m)}</span><b>${daysLeft(m)} dias · ${m.total} un.</b></div>`).join('')}else shopWrap.style.display='none';save()}
+document.getElementById('btnAdd').onclick=()=>{const n=document.getElementById('name').value.trim(),t=parseInt(document.getElementById('total').value),d=parseInt(document.getElementById('daily').value),th=parseInt(document.getElementById('thr').value)||15;if(!n||!t||!d)return alert('Preencha');reqPerm();meds.push({id:'m'+Date.now(),name:n,total:t,daily:d,threshold:th});document.getElementById('name').value='';document.getElementById('total').value='';document.getElementById('daily').value='';render()};
+function editMed(id){const m=meds.find(x=>x.id===id);const nt=prompt('Qtd total:',m.total);if(nt){m.total=parseInt(nt);notified.clear()}render()}
+function delMed(id){if(!confirm('Remover?'))return;meds=meds.filter(x=>x.id!==id);render()}
+function shareList(){const soon=meds.filter(m=>daysLeft(m)<=30);let txt='Olá, precisa comprar:\n\n';soon.forEach(m=>txt+=`• ${m.name} - ${m.total} un. (${daysLeft(m)} dias)\n`);if(navigator.share)navigator.share({text:txt});else prompt('Copie:',txt)}
+load();if(meds.length===0)meds=[{id:'m1',name:'Selozok',total:28,daily:2,threshold:15}];render();setTimeout(reqPerm,1500);setInterval(render,60000);
+if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js');
+</script>
+</body>
+</html>
