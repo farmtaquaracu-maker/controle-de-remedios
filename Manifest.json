@@ -1,0 +1,23 @@
+{
+  "name": "Controle de Remédios v6 DIAS",
+  "short_name": "Remédios v6",
+  "start_url": "/?v=6dias&pwa=new",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F6F4EF",
+  "theme_color": "#3F5941",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
