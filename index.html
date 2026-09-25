@@ -30,16 +30,17 @@ input:focus{border-color:var(--sage-btn)}
 .progress-wrap{height:6px;background:#F0EEE6;border-radius:10px;margin-top:14px;overflow:hidden}
 .progress{height:100%;background:#2E4A31;border-radius:10px;transition:width .3s}
 .med-actions{display:flex;gap:8px;margin-top:14px}
-.btn-edit,.btn-del{flex:1;padding:12px;border-radius:12px;font-size:0.86rem;font-weight:600;cursor:pointer}
+.btn-edit,.btn-repor,.btn-del{flex:1;padding:11px;border-radius:12px;font-size:0.86rem;font-weight:600;cursor:pointer}
 .btn-edit{background:#fff;border:1px solid var(--line);color:var(--ink)}
+.btn-repor{background:#E8F0E6;border:1px solid #C5D9C3;color:#2E4A31}
 .btn-del{background:#fff;border:1px solid #E9CFC8;color:var(--red)}
 .shop{background:var(--amber-bg);border:1px solid #F3DEB8;border-radius:16px;padding:16px;margin-top:12px}
 .shop-item{display:flex;justify-content:space-between;font-size:0.92rem;padding:4px 0;gap:10px}
 .shop-item b{color:var(--amber)}
 .btn-share{width:100%;margin-top:14px;background:#2E4A31;color:#fff;border:none;border-radius:12px;padding:14px;font-weight:600;cursor:pointer}
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:9999;padding:16px}
 .modal-bg.open{display:flex}
-.modal{background:#fff;border-radius:16px;padding:18px;width:100%;max-width:420px;border:1px solid var(--line)}
+.modal{background:#fff;border-radius:16px;padding:18px;width:100%;max-width:420px;border:1px solid var(--line);max-height:90vh;overflow-y:auto}
 .modal h3{margin:0 0 14px;font-family:Georgia,serif}
 .modal .row{margin-top:12px}
 .modal-actions{display:flex;gap:10px;margin-top:16px}
@@ -50,7 +51,7 @@ input:focus{border-color:var(--sage-btn)}
 </head>
 <body>
 <div class="wrap">
-<div class="header"><div class="icon-box">💊</div><div><h1>Controle de<br>Remédios</h1><p class="sub">Acompanhe o estoque e saiba<br>quando comprar antes de faltar.</p></div></div>
+<div class="header"><div class="icon-box" style="background:#5C7A5E;padding:6px"><img src="./icon-192.png" style="width:100%;height:100%;border-radius:10px;object-fit:cover"></div><div><h1>Controle de<br>Remédios</h1><p class="sub">Acompanhe o estoque e saiba<br>quando comprar antes de faltar.</p></div></div>
 <div class="section-title">Adicionar remédio</div>
 <div class="card">
 <label>Nome do remédio</label><input id="name" placeholder="Ex: Losartana 50mg">
@@ -73,7 +74,6 @@ input:focus{border-color:var(--sage-btn)}
 <div style="font-size:0.68rem;color:var(--muted);margin-top:6px">Tecnologia para cuidar da sua saúde • v1.0</div>
 </div>
 </div>
-
 <div class="modal-bg" id="modal"><div class="modal">
 <h3>Editar remédio</h3>
 <label>Nome do remédio</label><input id="editName">
@@ -87,72 +87,64 @@ input:focus{border-color:var(--sage-btn)}
 <button class="btn-save" onclick="saveEdit()">Salvar</button>
 </div>
 </div></div>
-
 <script>
-const KEY='meds_v6_final_dias';let meds=[];let notified=new Set();let editingId=null;
+const KEY='meds_v6_final_dias';
+let meds=[];let notified=new Set();let editingId=null;
 function load(){
-  // limpa caches antigos que estavam com bug
   try{
-    let oldKeys=['meds_v3','meds_v2','meds_v1'];
-    oldKeys.forEach(k=>{
-      let old=localStorage.getItem(k);
-      if(old){
+    const oldKeys=['meds_v3','meds_v4','meds_v5','meds_v5_dias_FINAL'];
+    for(const k of oldKeys){
+      const raw=localStorage.getItem(k);
+      if(raw){
         try{
-          let arr=JSON.parse(old);
-          if(arr && arr.length && !localStorage.getItem(KEY)){
-            localStorage.setItem(KEY, JSON.stringify(arr));
+          const arr=JSON.parse(raw);
+          if(Array.isArray(arr) && arr.length && !localStorage.getItem(KEY)){
+            localStorage.setItem(KEY, raw);
           }
         }catch{}
       }
-    });
+    }
   }catch{}
   try{meds=JSON.parse(localStorage.getItem(KEY)||'[]')}catch{meds=[]}
-  // garante que todo remédio tem campos válidos
-  meds = meds.filter(m=>m && m.name).map(m=>({
-    id: m.id || 'm'+Date.now()+Math.random(),
-    name: m.name,
+  meds=meds.filter(m=>m && m.name).map(m=>({
+    id: m.id ? String(m.id) : 'm'+Date.now()+Math.random().toString(36).slice(2),
+    name: String(m.name),
     total: parseInt(m.total)||0,
     daily: parseInt(m.daily)||1,
     threshold: parseInt(m.threshold)||15
   }));
   try{notified=new Set(JSON.parse(localStorage.getItem(KEY+'_notif')||'[]'))}catch{notified=new Set()}
 }
-function save(){localStorage.setItem(KEY,JSON.stringify(meds));localStorage.setItem(KEY+'_notif',JSON.stringify([...notified]))}
-function daysLeft(m){if(!m.daily||m.daily<=0)return 999;return Math.floor(m.total/m.daily)}
-function endDate(m){let d=new Date();d.setDate(d.getDate()+daysLeft(m));return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}
-function esc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function reqPerm(){if('Notification' in window && Notification.permission==='default')Notification.requestPermission()}
-function notifyLow(list){if(!('Notification' in window)||Notification.permission!=='granted')return;list.forEach(m=>{const k=m.id+'_'+m.total;if(notified.has(k))return;new Notification('⚠️ Estoque baixo', {body:`${m.name} - restam ${m.total} un. (${daysLeft(m)} dias)`,icon:'./icon-192.png'});notified.add(k)});save()}
-
-function render(){const list=document.getElementById('list'),count=document.getElementById('count'),shopWrap=document.getElementById('shopWrap'),shopList=document.getElementById('shopList'),banner=document.getElementById('banner');count.textContent=meds.length?meds.length+' cadastrado'+(meds.length>1?'s':''):'';const low=meds.filter(m=>daysLeft(m)<=(m.threshold||15));if(low.length){banner.innerHTML=`<div style="background:#F8E7E3;border:1px solid #E5A090;border-radius:12px;padding:14px;margin-top:20px;color:#7A2A1E"><b>⚠️ Estoque baixo - ${low.length} remédio(s)</b><br>${low.map(m=>`• ${esc(m.name)} - restam <b>${m.total} un.</b> (${daysLeft(m)} dias)`).join('<br>')}</div>`;notifyLow(low)}else banner.innerHTML='';if(!meds.length){list.innerHTML='<div style="text-align:center;color:#8A9483;padding:30px">Nenhum remédio ainda</div>';shopWrap.style.display='none';return}list.innerHTML=meds.map(m=>{const d=daysLeft(m);const isLow=d<=(m.threshold||15);return `<div class="card" style="margin-bottom:10px;${isLow?'border-color:#E5A090;background:#FFFBF9':''}"><div class="med-top"><div><div class="med-name">${esc(m.name)} ${isLow?'<span style="font-size:0.7rem;background:#F8E7E3;color:#B84C3E;padding:2px 8px;border-radius:20px;margin-left:6px">COMPRAR</span>':''}</div><div class="med-meta">${m.total} comprimidos · ${m.daily}/dia · até ${endDate(m)} · avisa com ${m.threshold||15} dias</div></div><div class="badge" style="${isLow?'background:#F8E7E3;color:#B84C3E;border-color:#E5A090':''}">${d} dias</div></div><div class="progress-wrap"><div class="progress" style="width:${Math.min(100,Math.max(5,Math.round((m.total/(m.daily*30))*100)))}%;${isLow?'background:#B84C3E':''}"></div></div><div class="med-actions"><button class="btn-edit" onclick="openEdit('${m.id}')">Editar</button><button class="btn-del" onclick="delMed('${m.id}')">Remover</button></div></div>`}).join('');const soon=meds.filter(m=>daysLeft(m)<=30);if(soon.length){shopWrap.style.display='block';shopList.innerHTML=soon.map(m=>`<div class="shop-item"><span>${esc(m.name)} - até ${endDate(m)}</span><b>${daysLeft(m)} dias · ${m.total} un.</b></div>`).join('')}else shopWrap.style.display='none';save()}
-
-document.getElementById('btnAdd').onclick=()=>{const n=document.getElementById('name').value.trim(),t=parseInt(document.getElementById('total').value),d=parseInt(document.getElementById('daily').value),th=parseInt(document.getElementById('thr').value)||15;if(!n||!t||!d)return alert('Preencha nome, qtd e por dia');reqPerm();meds.push({id:'m'+Date.now(),name:n,total:t,daily:d,threshold:th});document.getElementById('name').value='';document.getElementById('total').value='';document.getElementById('daily').value='';render()};
-
-function openEdit(id){const m=meds.find(x=>x.id===id);if(!m)return;editingId=id;document.getElementById('editName').value=m.name;document.getElementById('editTotal').value=m.total;document.getElementById('editDaily').value=m.daily;document.getElementById('editThr').value=m.threshold||15;document.getElementById('modal').classList.add('open')}
-function closeModal(){document.getElementById('modal').classList.remove('open');editingId=null}
-function saveEdit(){if(!editingId)return;const m=meds.find(x=>x.id===editingId);const nn=document.getElementById('editName').value.trim(),nt=parseInt(document.getElementById('editTotal').value),nd=parseInt(document.getElementById('editDaily').value),nth=parseInt(document.getElementById('editThr').value)||15;if(!nn||!nt||!nd)return alert('Preencha tudo');m.name=nn;m.total=nt;m.daily=nd;m.threshold=nth;notified=new Set([...notified].filter(k=>!k.startsWith(m.id+'_')));closeModal();render()}
-function delMed(id){if(!confirm('Remover este remédio?'))return;meds=meds.filter(x=>x.id!==id);render()}
-function shareList(){const soon=meds.filter(m=>daysLeft(m)<=30);if(!soon.length)return alert('Nada pra comprar nos próximos 30 dias');let txt='🛒 Lista de compras - Remédios (30 dias)\n\n';soon.forEach(m=>txt+=`• ${m.name} - ${m.total} un. (${daysLeft(m)} dias) - até ${endDate(m)}\n`);if(navigator.share)navigator.share({text:txt}).catch(()=>{});else prompt('Copie a lista:',txt)}
+function save(){localStorage.setItem(KEY, JSON.stringify(meds));localStorage.setItem(KEY+'_notif', JSON.stringify([...notified]));}
+function daysLeft(m){if(!m.daily||m.daily<=0)return 999;return Math.floor(m.total/m.daily);}
+function endDate(m){let d=new Date();d.setDate(d.getDate()+daysLeft(m));return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function reqPerm(){if('Notification' in window && Notification.permission==='default')Notification.requestPermission();}
+function notifyLow(list){if(!('Notification' in window)||Notification.permission!=='granted')return;list.forEach(m=>{const k=m.id+'_'+m.total;if(notified.has(k))return;try{new Notification('⚠️ Estoque baixo', {body:`${m.name} - restam ${m.total} un. (${daysLeft(m)} dias)`,icon:'./icon-192.png'});}catch{}notified.add(k);});save();}
+function render(){
+  const list=document.getElementById('list');const count=document.getElementById('count');const shopWrap=document.getElementById('shopWrap');const shopList=document.getElementById('shopList');const banner=document.getElementById('banner');
+  count.textContent=meds.length?meds.length+' cadastrado'+(meds.length>1?'s':''):'';
+  const low=meds.filter(m=>daysLeft(m) <= (m.threshold||15));
+  if(low.length){banner.innerHTML=`<div style="background:#F8E7E3;border:1px solid #E5A090;border-radius:12px;padding:14px;margin-top:20px;color:#7A2A1E"><b>⚠️ Estoque baixo - ${low.length} remédio(s)</b><br>${low.map(m=>`• ${esc(m.name)} - restam <b>${m.total} un.</b> (${daysLeft(m)} dias)`).join('<br>')}</div>`;notifyLow(low);}else{banner.innerHTML='';}
+  if(!meds.length){list.innerHTML='<div style="text-align:center;color:#8A9483;padding:30px">Nenhum remédio ainda</div>';shopWrap.style.display='none';return;}
+  list.innerHTML=meds.map(m=>{const d=daysLeft(m);const isLow=d <= (m.threshold||15);return `<div class="card" style="margin-bottom:10px;${isLow?'border-color:#E5A090;background:#FFFBF9':''}"><div class="med-top"><div><div class="med-name">${esc(m.name)} ${isLow?'<span style="font-size:0.7rem;background:#F8E7E3;color:#B84C3E;padding:2px 8px;border-radius:20px;margin-left:6px">COMPRAR</span>':''}</div><div class="med-meta">${m.total} comprimidos · ${m.daily}/dia · até ${endDate(m)} · avisa com ${m.threshold||15} dias</div></div><div class="badge" style="${isLow?'background:#F8E7E3;color:#B84C3E;border-color:#E5A090':''}">${d} dias</div></div><div class="progress-wrap"><div class="progress" style="width:${Math.min(100,Math.max(5,Math.round((m.total/(m.daily*30))*100)))}%;${isLow?'background:#B84C3E':''}"></div></div><div class="med-actions"><button class="btn-edit" onclick="openEdit('${m.id}')">Editar</button><button class="btn-repor" onclick="reporMed('${m.id}')">+ Repor</button><button class="btn-del" onclick="delMed('${m.id}')">Remover</button></div></div>`;}).join('');
+  const soon=meds.filter(m=>daysLeft(m)<=30);
+  if(soon.length){shopWrap.style.display='block';shopList.innerHTML=soon.map(m=>`<div class="shop-item"><span>${esc(m.name)} - até ${endDate(m)}</span><b>${daysLeft(m)} dias · ${m.total} un.</b></div>`).join('');}else{shopWrap.style.display='none';}
+  save();
+}
+document.getElementById('btnAdd').onclick=()=>{
+  const n=document.getElementById('name').value.trim();const t=parseInt(document.getElementById('total').value);const d=parseInt(document.getElementById('daily').value);const th=parseInt(document.getElementById('thr').value)||15;
+  if(!n||!t||!d)return alert('Preencha nome, qtd e por dia');reqPerm();meds.push({id:'m'+Date.now()+Math.random().toString(36).slice(2),name:n,total:t,daily:d,threshold:th});document.getElementById('name').value='';document.getElementById('total').value='';document.getElementById('daily').value='';render();
+};
+window.openEdit=function(id){const m=meds.find(x=>String(x.id)===String(id));if(!m)return alert('Remédio não encontrado: '+id);editingId=m.id;document.getElementById('editName').value=m.name;document.getElementById('editTotal').value=m.total;document.getElementById('editDaily').value=m.daily;document.getElementById('editThr').value=m.threshold||15;document.getElementById('modal').classList.add('open');};
+window.closeModal=function(){document.getElementById('modal').classList.remove('open');editingId=null;};
+window.saveEdit=function(){if(!editingId)return;const m=meds.find(x=>String(x.id)===String(editingId));if(!m)return;const nn=document.getElementById('editName').value.trim();const nt=parseInt(document.getElementById('editTotal').value);const nd=parseInt(document.getElementById('editDaily').value);const nth=parseInt(document.getElementById('editThr').value)||15;if(!nn||!nt||!nd)return alert('Preencha tudo');m.name=nn;m.total=nt;m.daily=nd;m.threshold=nth;notified=new Set([...notified].filter(k=>!k.startsWith(m.id+'_')));closeModal();render();};
+window.reporMed=function(id){const m=meds.find(x=>String(x.id)===String(id));if(!m)return;const q=prompt(`Quantos comprimidos adicionar em "${m.name}"?\nAtual: ${m.total} un.\nDigite a quantidade (ex: 30):`,"30");if(q===null)return;const add=parseInt(q);if(isNaN(add)||add<=0)return alert('Digite um número válido');m.total+=add;notified=new Set([...notified].filter(k=>!k.startsWith(m.id+'_')));render();};
+window.delMed=function(id){if(!confirm('Remover este remédio?'))return;meds=meds.filter(x=>String(x.id)!==String(id));render();};
+window.shareList=function(){const soon=meds.filter(m=>daysLeft(m)<=30);if(!soon.length)return alert('Nada pra comprar nos próximos 30 dias');let txt='🛒 Lista de compras - Remédios (30 dias)\n\n';soon.forEach(m=>txt+=`• ${m.name} - ${m.total} un. (${daysLeft(m)} dias) - até ${endDate(m)}\n`);if(navigator.share)navigator.share({text:txt}).catch(()=>{});else prompt('Copie a lista:',txt);};
 load();render();setTimeout(reqPerm,1500);setInterval(render,60000);
-
-if('serviceWorker' in navigator){
-  // Remove TODO SW - app agora sem cache
-  navigator.serviceWorker.getRegistrations().then(rs=>{
-    rs.forEach(r=>r.unregister());
-  });
-  if(window.caches){
-    caches.keys().then(ks=>ks.forEach(k=>caches.delete(k)));
-  }
-}
-// Força atualizar se for app antigo
-if(localStorage.getItem('app_version') !== 'v6-dias'){
-  localStorage.setItem('app_version','v6-dias');
-  localStorage.removeItem('meds_v3');
-  localStorage.removeItem('meds_v4_dias');
-  localStorage.removeItem('meds_v6_final_dias');
-}
-
-
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js');}
+document.getElementById('modal').addEventListener('click', function(e){if(e.target===this)closeModal();});
 </script>
 </body>
 </html>

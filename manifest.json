@@ -1,9 +1,11 @@
 {
-  "name": "Controle de Remédios v6 DIAS",
-  "short_name": "Remédios v6",
-  "start_url": "/?v=6dias&pwa=new",
+  "name": "Controle de Remédios",
+  "short_name": "Remédios",
+  "description": "Controle de estoque de remédios 100% offline",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#F6F4EF",
   "theme_color": "#3F5941",
   "icons": [

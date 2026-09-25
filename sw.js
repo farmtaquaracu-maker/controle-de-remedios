@@ -1,12 +1,42 @@
-// SW v6 - desativa PWA cache - deixa Chrome buscar sempre da rede
-self.addEventListener('install', e=>{self.skipWaiting();});
-self.addEventListener('activate', e=>{
+const CACHE='remedios-v7-final';
+const ASSETS=[
+  './',
+  './index.html',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png'
+];
+
+self.addEventListener('install', e=>{
   e.waitUntil(
-    caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k))))
-      .then(()=>self.clients.claim())
-      .then(()=>self.registration.unregister())
+    caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())
   );
 });
+
+self.addEventListener('activate', e=>{
+  e.waitUntil(
+    caches.keys().then(keys=>Promise.all(
+      keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))
+    )).then(()=>self.clients.claim())
+  );
+});
+
 self.addEventListener('fetch', e=>{
-  e.respondWith(fetch(e.request, {cache:'no-store'}));
+  // Navegacao: network first, fallback cache
+  if(e.request.mode==='navigate'){
+    e.respondWith(
+      fetch(e.request).then(r=>{
+        return caches.open(CACHE).then(c=>{c.put(e.request, r.clone()); return r;});
+      }).catch(()=>caches.match('./index.html'))
+    );
+    return;
+  }
+  // Outros: cache first, fallback network
+  e.respondWith(
+    caches.match(e.request).then(cached=>{
+      return cached || fetch(e.request).then(r=>{
+        return caches.open(CACHE).then(c=>{c.put(e.request, r.clone()); return r;});
+      });
+    })
+  );
 });
