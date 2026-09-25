@@ -71,7 +71,7 @@ input:focus{border-color:var(--sage-btn)}
 <div style="font-size:0.85rem;margin-top:8px;display:flex;justify-content:center;gap:6px;flex-wrap:wrap;align-items:center">
 <span>Criado por</span><a href="https://instagram.com/le4ndro.m" target="_blank" style="font-weight:700;color:#3F5941;text-decoration:none">@Leandro_tm</a><span style="color:var(--muted)">•</span><span>com IA <b>Claude</b> & <b>Meta AI</b></span>
 </div>
-<div style="font-size:0.68rem;color:var(--muted);margin-top:6px">Tecnologia para cuidar da sua saúde • v1.0</div>
+<div style="font-size:0.68rem;color:var(--muted);margin-top:6px">v7 - subtrai automático à meia-noite</div>
 </div>
 </div>
 <div class="modal-bg" id="modal"><div class="modal">
@@ -88,11 +88,41 @@ input:focus{border-color:var(--sage-btn)}
 </div>
 </div></div>
 <script>
-const KEY='meds_v6_final_dias';
+const KEY='meds_v7_auto';
 let meds=[];let notified=new Set();let editingId=null;
+
+function todayStr(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function daysDiff(aStr,bStr){
+  const a=new Date(aStr+'T00:00:00');
+  const b=new Date(bStr+'T00:00:00');
+  return Math.floor((b-a)/86400000);
+}
+function checkDailyConsumption(){
+  const LAST_KEY=KEY+'_lastDate';
+  const today=todayStr();
+  const last=localStorage.getItem(LAST_KEY);
+  if(!last){localStorage.setItem(LAST_KEY, today); return false;}
+  if(last===today) return false;
+  const diff=daysDiff(last, today);
+  if(diff<=0){localStorage.setItem(LAST_KEY, today); return false;}
+  let changed=false;
+  meds.forEach(m=>{
+    if(m.total>0 && m.daily>0){
+      const sub=diff*m.daily;
+      const newTotal=Math.max(0, m.total-sub);
+      if(newTotal!==m.total){m.total=newTotal; changed=true;}
+    }
+  });
+  localStorage.setItem(LAST_KEY, today);
+  return changed;
+}
+
 function load(){
   try{
-    const oldKeys=['meds_v3','meds_v4','meds_v5','meds_v5_dias_FINAL'];
+    const oldKeys=['meds_v6_final_dias','meds_v3','meds_v4','meds_v5','meds_v5_dias_FINAL'];
     for(const k of oldKeys){
       const raw=localStorage.getItem(k);
       if(raw){
@@ -100,6 +130,7 @@ function load(){
           const arr=JSON.parse(raw);
           if(Array.isArray(arr) && arr.length && !localStorage.getItem(KEY)){
             localStorage.setItem(KEY, raw);
+            break;
           }
         }catch{}
       }
@@ -114,6 +145,10 @@ function load(){
     threshold: parseInt(m.threshold)||15
   }));
   try{notified=new Set(JSON.parse(localStorage.getItem(KEY+'_notif')||'[]'))}catch{notified=new Set()}
+  // Verifica se passou da meia-noite e subtrai
+  if(checkDailyConsumption()){
+    save();
+  }
 }
 function save(){localStorage.setItem(KEY, JSON.stringify(meds));localStorage.setItem(KEY+'_notif', JSON.stringify([...notified]));}
 function daysLeft(m){if(!m.daily||m.daily<=0)return 999;return Math.floor(m.total/m.daily);}
@@ -142,7 +177,9 @@ window.saveEdit=function(){if(!editingId)return;const m=meds.find(x=>String(x.id
 window.reporMed=function(id){const m=meds.find(x=>String(x.id)===String(id));if(!m)return;const q=prompt(`Quantos comprimidos adicionar em "${m.name}"?\nAtual: ${m.total} un.\nDigite a quantidade (ex: 30):`,"30");if(q===null)return;const add=parseInt(q);if(isNaN(add)||add<=0)return alert('Digite um número válido');m.total+=add;notified=new Set([...notified].filter(k=>!k.startsWith(m.id+'_')));render();};
 window.delMed=function(id){if(!confirm('Remover este remédio?'))return;meds=meds.filter(x=>String(x.id)!==String(id));render();};
 window.shareList=function(){const soon=meds.filter(m=>daysLeft(m)<=30);if(!soon.length)return alert('Nada pra comprar nos próximos 30 dias');let txt='🛒 Lista de compras - Remédios (30 dias)\n\n';soon.forEach(m=>txt+=`• ${m.name} - ${m.total} un. (${daysLeft(m)} dias) - até ${endDate(m)}\n`);if(navigator.share)navigator.share({text:txt}).catch(()=>{});else prompt('Copie a lista:',txt);};
-load();render();setTimeout(reqPerm,1500);setInterval(render,60000);
+load();render();setTimeout(reqPerm,1500);
+// Verifica a cada minuto se virou o dia
+setInterval(()=>{ if(checkDailyConsumption()){ save(); render(); } },60000);
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js');}
 document.getElementById('modal').addEventListener('click', function(e){if(e.target===this)closeModal();});
 </script>
