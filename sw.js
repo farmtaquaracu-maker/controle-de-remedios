@@ -1,74 +1,37 @@
-const CACHE='remedios-v8-offline-100';
-const ASSETS=[
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png',
-  './',
-  './index.html',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png'
-];
+const CACHE='remedios-v9-100-offline';
+const FILES=['/','/index.html','/manifest.json','/icon-192.png','/icon-512.png'];
 
 self.addEventListener('install', e=>{
+  self.skipWaiting();
   e.waitUntil(
-    caches.open(CACHE).then(c=>c.addAll(ASSETS.map(url=>new Request(url, {cache:'reload'}))))
-      .then(()=>self.skipWaiting())
-      .catch(err=>console.log('Cache fail', err))
+    caches.open(CACHE).then(cache=>{
+      return cache.addAll(FILES).catch(()=>cache.addAll(['./','./index.html']));
+    })
   );
 });
 
 self.addEventListener('activate', e=>{
   e.waitUntil(
     caches.keys().then(keys=>Promise.all(
-      keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))
+      keys.map(k=>{ if(k!==CACHE) return caches.delete(k); })
     )).then(()=>self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', e=>{
-  // Ignora chrome-extension e outros esquemas
-  if(!e.request.url.startsWith('http')) return;
-
-  // Para navegação (abrir o app): CACHE FIRST - 100% offline
-  if(e.request.mode==='navigate'){
-    e.respondWith(
-      caches.match(e.request)
-        .then(cached=>{
-          if(cached) return cached;
-          return caches.match('/index.html')
-            .then(m=>m || caches.match('./index.html'))
-            .then(m=>m || caches.match('/'))
-            .then(m=>m || caches.match('./'))
-            .then(m=>{
-              if(m) return m;
-              // Ultimo recurso: tenta rede
-              return fetch(e.request).catch(()=>m);
-            });
-        })
-        .catch(()=>caches.match('/index.html'))
-    );
-    return;
-  }
-
-  // Para CSS, JS, imagens, manifest: CACHE FIRST, depois rede
+  if(e.request.method!=='GET') return;
+  // NUNCA tenta rede primeiro se for navegação - sempre cache
   e.respondWith(
-    caches.match(e.request).then(cached=>{
-      if(cached) return cached;
-      return fetch(e.request).then(r=>{
-        // Guarda no cache pra proxima vez offline
-        if(r.ok && r.type==='basic'){
-          const clone=r.clone();
-          caches.open(CACHE).then(c=>c.put(e.request, clone));
+    caches.match(e.request).then(cacheRes=>{
+      return cacheRes || caches.match('/index.html') || caches.match('./index.html') || caches.match('/') || fetch(e.request).then(netRes=>{
+        // se conseguiu rede, guarda pro offline futuro
+        if(netRes && netRes.ok){
+          caches.open(CACHE).then(c=>c.put(e.request, netRes.clone()));
         }
-        return r;
+        return netRes;
       }).catch(()=>{
-        // Se offline e não tem no cache, retorna o index pra não quebrar
-        if(e.request.destination==='image'){
-          return caches.match('/icon-192.png');
-        }
+        // offline e não achou nada: retorna index
+        return caches.match('/index.html') || caches.match('./index.html');
       });
     })
   );
